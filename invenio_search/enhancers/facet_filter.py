@@ -20,17 +20,12 @@
 """Filter search results based on selected facets."""
 
 import json
-
 from itertools import groupby
 from operator import itemgetter
 
 from flask import request
-
-from invenio_search.registry import facets
-
-from invenio_query_parser.ast import (
-    AndOp, DoubleQuotedValue, Keyword, KeywordOp, NotOp, OrOp
-)
+from invenio_query_parser.ast import AndOp, DoubleQuotedValue, Keyword, \
+    KeywordOp, NotOp, OrOp
 
 
 def facet_formatter(key, val):
@@ -56,8 +51,7 @@ def get_groupped_facets(filter_data):
     return out
 
 
-def format_facet_tree_nodes(query, filter_data, facets,
-                            formatter=facet_formatter):
+def format_facet_tree_nodes(query, filter_data, formatter=facet_formatter):
     """Add extra nodes to the AST.
 
     First get the facet filter expression from the request values.
@@ -71,31 +65,30 @@ def format_facet_tree_nodes(query, filter_data, facets,
     """
     # Intersect and diff records with selected facets.
     def union_facet_values(key, values):
+        """Simply join values with ``OrOp``."""
         return reduce(OrOp, [formatter(key, value) for value in values])
 
     if '+' in filter_data:
         values = filter_data['+']
-        for key in facets:
-            if key in values:
-                query = AndOp(query, union_facet_values(key, values[key]))
+        for key in values:
+            query = AndOp(query, union_facet_values(key, values[key]))
 
     if '-' in filter_data:
         values = filter_data['-']
-        for key in facets:
-            if key in values:
-                query = AndOp(query, NotOp(
-                    union_facet_values(key, values[key]))
-                )
+        for key in values:
+            query = AndOp(query, NotOp(
+                union_facet_values(key, values[key])
+            ))
 
     return query
 
 
-def apply(query, user_info=None, collection=None, **kwargs):
+def apply(query, **kwargs):
     """Enhance the query AST with the facet filters."""
     if 'filter' in request.values:
         if 'filter' in request.values:
             filter_data = get_groupped_facets(json.loads(
                 request.values.get('filter', '[]')
             ))
-            query = format_facet_tree_nodes(query, filter_data, facets)
+            query = format_facet_tree_nodes(query, filter_data)
     return query

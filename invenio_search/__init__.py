@@ -23,3 +23,15 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Invenio module for information retrieval."""
+
+from __future__ import absolute_import, print_function
+
+from .ext import InvenioSearch
+from .proxy import current_search_client
+from .version import __version__
+
+__all__ = (
+    '__version__',
+    'InvenioSearch',
+    'current_search_client',
+)

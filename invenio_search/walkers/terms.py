@@ -19,14 +19,9 @@
 
 """Implement AST vistor."""
 
-from invenio_query_parser.ast import (
-    AndOp, KeywordOp, OrOp,
-    NotOp, Keyword, Value,
-    SingleQuotedValue,
-    DoubleQuotedValue,
-    RegexValue, RangeOp,
-    ValueQuery, EmptyQuery
-)
+from invenio_query_parser.ast import AndOp, DoubleQuotedValue, EmptyQuery, \
+    Keyword, KeywordOp, NotOp, OrOp, RangeOp, RegexValue, SingleQuotedValue, \
+    Value, ValueQuery
 from invenio_query_parser.visitor import make_visitor
 
 

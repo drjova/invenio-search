@@ -19,14 +19,7 @@
 
 """Search engine API."""
 
-from __future__ import unicode_literals
-
 import pypeg2
-
-from flask_login import current_user
-
-from invenio_base.helpers import unicodifier
-
 from werkzeug.utils import cached_property
 
 from .utils import parser, query_enhancers, query_walkers, search_walkers
@@ -35,16 +28,11 @@ from .walkers.terms import Terms
 
 
 class Query(object):
-
-    """Search engine implemetation.
-
-    .. versionadded:: 2.1
-       New search and match API.
-    """
+    """Search engine implemetation."""
 
     def __init__(self, query):
         """Initialize with search query."""
-        self._query = unicodifier(query)
+        self._query = query
 
     @cached_property
     def query(self):
@@ -54,18 +42,16 @@ class Query(object):
             tree = tree.accept(walker)
         return tree
 
-    def search(self, user_info=None, collection=None, **kwargs):
+    def search(self, **kwargs):
         """Search records."""
-        user_info = user_info or current_user
         # Enhance query first
         query = self.query
         for enhancer in query_enhancers():
-            query = enhancer(query, user_info=user_info,
-                             collection=collection)
+            query = enhancer(query, **kwargs)
 
         for walker in search_walkers():
             query = query.accept(walker)
-        return Results(query)
+        return query
 
     def match(self, record, user_info=None):
         """Return True if record match the query."""
@@ -87,22 +73,6 @@ class Results(object):
         self.body.update(kwargs)
 
         self._results = None
-
-    @property
-    def recids(self):
-        # FIXME add warnings
-        from intbitset import intbitset
-        from invenio_ext.es import es
-        results = es.search(
-            index='records',
-            doc_type='record',
-            body={
-                'size': 9999999,
-                'fields': ['control_number'],
-                'query': self.body.get("query")
-            }
-        )
-        return intbitset([int(r['_id']) for r in results['hits']['hits']])
 
     def _search(self):
         from invenio_ext.es import es
