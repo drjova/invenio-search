@@ -32,43 +32,102 @@ Make sure that ``elasticsearch`` server is running:
    $ elasticsearch
    ... version[2.0.0] ...
 
-Run example development server:
+Create database and tables:
+
+.. code-block:: console
+
+   $ flask -a app.py db init
+   $ flask -a app.py db create
+
+Create a user:
+
+.. code-block:: console
+
+   $ flask -a app.py users create -e info@invenio-software.org -a
+   $ flask -a app.py users activate -u info@invenio-software.org
+
+Upload sample records::
 
 .. code-block:: console
 
    $ cd examples
-   $ echo '{"title": "Test", "control_number": 1}' > record_1.json
-   $ flask --app app index put records record -i 1 -b record_1.json
+   $ echo '{"title": "Public", "body": "test 1", "public": 1}' > public.json
+   $ echo '{"title": "Private", "body": "test 2", "public": 0}' > private.json
+   $ flask --app app index put demo example -b public.json
+   $ flask --app app index put demo example -b private.json
    $ flask --app app run
 
 Try to perform some queries from browser:
 
 .. code-block:: console
 
-   $ open http://localhost:5000/?q=title:Test
+   $ open http://localhost:5000/?q=body:test
 
 """
 
 from __future__ import absolute_import, print_function
 
 from flask import Flask, jsonify, request
+from flask_babelex import Babel
 from flask_cli import FlaskCLI
+from flask_mail import Mail
+from flask_menu import Menu
+from flask_security import current_user
+from invenio_accounts import InvenioAccounts
+from invenio_db import InvenioDB
 
-from invenio_search import InvenioSearch, current_search_client
+from invenio_accounts.views import blueprint
+
+from invenio_search import InvenioSearch, Query, current_search_client
 
 # Create Flask application
 app = Flask(__name__)
+app.config.update(
+    ACCOUNTS_USE_CELERY=False,
+    CELERY_ALWAYS_EAGER=True,
+    CELERY_CACHE_BACKEND="memory",
+    CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
+    CELERY_RESULT_BACKEND="cache",
+    MAIL_SUPPRESS_SEND=True,
+    SECRET_KEY="CHANGE_ME",
+    SECURITY_PASSWORD_SALT="CHANGE_ME_ALSO",
+    SEARCH_ELASTIC_KEYWORD_MAPPING={None: ['_all']},
+)
 FlaskCLI(app)
+Babel(app)
+Mail(app)
+Menu(app)
+InvenioDB(app)
+InvenioAccounts(app)
+
+app.register_blueprint(blueprint)
+
 InvenioSearch(app)
+
+
+def authenticated_query(query, **kwargs):
+    """Enhance query with user authentication rules."""
+    from invenio_query_parser.ast import AndOp, DoubleQuotedValue, Keyword, \
+        KeywordOp
+    if not current_user.is_authenticated():
+        query.body['_source'] = {'exclude': ['public']}
+        query.query = AndOp(
+            KeywordOp(Keyword('public'), DoubleQuotedValue(1)),
+            query.query
+        )
+
+app.config['SEARCH_QUERY_ENHANCERS'] = [authenticated_query]
 
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/<index_name>', methods=['GET', 'POST'])
-def index(index_name='records'):
-    query = request.values.get('q', '')
+def index(index_name='demo'):
+    page = request.values.get('page', 1, type=int)
+    size = request.values.get('size', 1, type=int)
+    query = Query(request.values.get('q', ''))[(page-1)*size:page*size]
     response = current_search_client.search(
         index=index_name,
-        doc_type='record',
-        q=query,
+        doc_type=request.values.get('type', 'example'),
+        body=query.body,
     )
     return jsonify(**response)

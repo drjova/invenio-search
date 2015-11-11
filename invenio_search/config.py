@@ -53,9 +53,13 @@ if os.environ.get('SEARCH_ELASTIC_HOSTS'):
 else:
     SEARCH_ELASTIC_HOSTS = None  # default localhost
 
+# SEARCH_INDEX_DEFAULT -- use when no index name is defined
+SEARCH_INDEX_DEFAULT = 'records'
+
 # SEARCH_ELASTIC_KEYWORD_MAPPING -- this variable holds a dictionary to map
 # invenio keywords to elasticsearch fields
 SEARCH_ELASTIC_KEYWORD_MAPPING = {
+    None: ["_all"],
     "author": {
         'a': ["main_entry_personal_name.personal_name",
               "added_entry_personal_name.personal_name"],

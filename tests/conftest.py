@@ -29,12 +29,14 @@ from __future__ import absolute_import, print_function
 
 import pytest
 from flask import Flask
+from flask_cli import FlaskCLI
 
 
 @pytest.fixture()
 def app():
     """Flask application fixture."""
     app = Flask('testapp')
+    FlaskCLI(app)
     app.config.update(
         TESTING=True
     )

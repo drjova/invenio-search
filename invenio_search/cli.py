@@ -40,10 +40,10 @@ def abort_if_false(ctx, param, value):
     if not value:
         ctx.abort()
 
-#
-# Record management commands
-#
 
+#
+# Index management commands
+#
 @click.group()
 def index():
     """Management command for search indicies."""
@@ -51,22 +51,37 @@ def index():
 
 @index.command()
 @click.argument('index_name')
-@click.option('-m', '--mapping', type=click.File('r'), default=sys.stdin)
+@click.option('-b', '--body', type=click.File('r'), default=sys.stdin)
 @click.option('--force', is_flag=True, default=False)
+@click.option('--verbose', is_flag=True, default=False)
 @with_appcontext
-def create(index_name, mapping, force):
+def create(index_name, body, force, verbose):
     """Create new index."""
-
+    result = current_search_client.indices.create(
+        index=index_name,
+        body=json.load(body),
+        ignore=[400] if force else None,
+    )
+    if verbose:
+        click.echo(json.dumps(result))
 
 
 @index.command()
 @click.argument('index_name')
+@click.option('--force', is_flag=True, default=False)
+@click.option('--verbose', is_flag=True, default=False)
 @click.option('--yes-i-know', is_flag=True, callback=abort_if_false,
               expose_value=False,
               prompt='Do you know that you are going to destroy the db?')
 @with_appcontext
-def drop(index_name):
-    """Drop index by its name."""
+def delete(index_name, force, verbose):
+    """Delete index by its name."""
+    result = current_search_client.indices.delete(
+        index=index_name,
+        ignore=[400, 404] if force else None,
+    )
+    if verbose:
+        click.echo(json.dumps(result))
 
 
 @index.command()
